@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pinterest - Trieur MAISON (bouton orange + dossiers)
 // @namespace    https://local/pinterest-trieur-maison
-// @version      2.1.0
+// @version      2.2.0
 // @description  Masque la barre d'actions native de Pinterest et la remplace par un bouton orange. Au survol du bouton, une rangee de categories se deploie : un clic enregistre l'image en resolution maximale dans le bon sous-dossier de MAISON.
 // @match        https://*.pinterest.com/*
 // @match        https://*.pinterest.fr/*
@@ -365,16 +365,21 @@
   let rowTimer   = null;
   let busy       = false;
 
-  const PIN_SELECTOR = [
-    'div[data-test-id="pin"]',
-    'div[data-test-id="pinWrapper"]',
-    'div[data-test-id="closeup-image"]',
-    'div[role="listitem"]',
-    'a[href*="/pin/"]'
-  ].join(',');
+  // Le pin entier : sur Pinterest, la photo est dans un lien <a>, mais la barre
+  // "Visiter" et le bouton "Enregistrer" sont poses A COTE, dans un calque
+  // (data-test-id="contentLayer"). Il faut donc prendre le bloc qui contient les deux.
+  const PIN_SELECTORS = [
+    'div[data-test-id="pinWrapper"], div[data-test-id="pin"], div[data-test-id="closeup-image"]',
+    'div[role="listitem"], a[href*="/pin/"]'
+  ];
 
   function containerOf(el) {
-    return el && el.closest ? el.closest(PIN_SELECTOR) : null;
+    if (!el || !el.closest) return null;
+    for (let i = 0; i < PIN_SELECTORS.length; i++) {
+      const c = el.closest(PIN_SELECTORS[i]);
+      if (c) return c;
+    }
+    return null;
   }
   function isPinImg(img) {
     const s = img && (img.currentSrc || img.src);
@@ -405,7 +410,7 @@
   }
 
   function buildRow() {
-    row.innerHTML = '';
+    row.replaceChildren();
     categories.forEach(function (cat) {
       const b = document.createElement('button');
       b.dataset.cat = cat;
@@ -704,7 +709,7 @@
   }
 
   function renderBar() {
-    bar.innerHTML = '';
+    bar.replaceChildren();
     bar.style.padding = barMini ? '6px' : '11px';
 
     if (barMini) {
@@ -851,6 +856,7 @@
      12. DEMARRAGE
      ============================================================ */
   (async function init() {
+    console.log('[Trieur MAISON] script demarre (v2.2.0)');
     applyNativeFlag();
     await restoreRoot();
     renderBar();
@@ -861,5 +867,8 @@
     else if (storedHandle && rootReady) toast('Dossier « ' + storedHandle.name + ' » pret.');
     else if (storedHandle) toast('Clique sur « Autoriser » en bas a gauche pour reprendre.', true);
     else toast('Choisis le dossier MAISON en bas a gauche.', true);
-  })();
+  })().catch(function (e) {
+    console.error('[Trieur MAISON] erreur au demarrage', e);
+    toast('Trieur MAISON : erreur au demarrage (' + e.message + ')', true);
+  });
 })();
